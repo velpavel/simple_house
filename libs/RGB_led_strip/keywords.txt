@@ -1,0 +1,4 @@
+RGB_strip	KEYWORD1
+set_color	KEYWORD2
+set_brightness	KEYWORD2
+show_brightness	KEYWORD2
