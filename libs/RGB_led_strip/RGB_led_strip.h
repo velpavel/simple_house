@@ -11,10 +11,10 @@
   #include "WProgram.h"
 #endif 
 
-class RGB_strip
+class RGB_led
 {
   public:
-    RGB_strip(byte pinR, byte pinG, byte pinB);
+    RGB_led(byte pinR, byte pinG, byte pinB);
     void set_color(byte R_color, byte G_color, byte B_color);
     void set_brightness(byte brightness);
     byte show_brightness();
