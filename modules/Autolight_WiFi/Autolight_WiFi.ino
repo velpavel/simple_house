@@ -17,10 +17,13 @@
 
 /*
 topics 
-"/coridor/module/status"
-/coridor/motion_sensor/status
-/coridor/light/status
-/coridor/light/command
+#define MODULE_ST_TOPIC "/coridor/module/status"
+#define MODULE_COM_TOPIC "/coridor/module/command"
+#define AUTOMODE_ST_TOPIC "/coridor/automode/status"
+#define AUTOMODE_COM_TOPIC "/coridor/automode/command"
+#define MOTION_ST_TOPIC "/coridor/motion_sensor/status"
+#define LIGHTS_ST_TOPIC "/coridor/light/status"
+#define LIGHTS_COM_TOPIC "/coridor/light/command"
 */
 
 
@@ -37,7 +40,6 @@ topics
 
 // RemoteXY connection settings  
 #define REMOTEXY_SERVER_PORT 6377 
-
 
 // RemoteXY configurate   
 #pragma pack(push, 1) 
@@ -90,8 +92,11 @@ struct {
 #define PHOTORESIS_PIN A0 //вход с фоторезистора
 
 //topics 
-#define MODULE_TOPIC "/coridor/module/status"
-#define MOTION_TOPIC "/coridor/motion_sensor/status"
+#define MODULE_ST_TOPIC "/coridor/module/status"
+#define MODULE_COM_TOPIC "/coridor/module/command"
+#define AUTOMODE_ST_TOPIC "/coridor/automode/status"
+#define AUTOMODE_COM_TOPIC "/coridor/automode/command"
+#define MOTION_ST_TOPIC "/coridor/motion_sensor/status"
 #define LIGHTS_ST_TOPIC "/coridor/light/status"
 #define LIGHTS_COM_TOPIC "/coridor/light/command"
 
@@ -114,30 +119,37 @@ void callback(const MQTT::Publish& sub) {
   Serial.println(sub.payload_string());
 
   if (sub.topic() == LIGHTS_COM_TOPIC) {
-    if (sub.payload_string() == "on") {  
+    if (sub.payload_string() == "1") {  
       // на реле инверсные команды
       if (auto_light){
         auto_light = false;
-        client.publish(MODULE_TOPIC, "Manual mode.");
+        client.publish(AUTOMODE_ST_TOPIC, "0");
       }
       RemoteXY.slMode = 1;
-      if (!digitalRead(LIGHT_PIN)) client.publish(LIGHTS_ST_TOPIC, "Light allready on");
-      else turn_light_on();
+      if (digitalRead(LIGHT_PIN))turn_light_on();
     }
-    else if (sub.payload_string() == "off") {
+    else if (sub.payload_string() == "0") {
       // на реле инверсные команды
       if (auto_light){
         auto_light = false;
-        client.publish(MODULE_TOPIC, "Manual mode.");
+        client.publish(AUTOMODE_ST_TOPIC, "0");
       }
       RemoteXY.slMode = 2;
-      if (digitalRead(LIGHT_PIN)) client.publish(LIGHTS_ST_TOPIC, "Light allready off");
-      else turn_light_off();
+      if (!digitalRead(LIGHT_PIN)) turn_light_off();
     }
-    else if (sub.payload_string() == "auto") {
+  }
+  else if (sub.topic() == AUTOMODE_COM_TOPIC){
+    if (sub.payload_string() == "1") {
       auto_light = true;
       RemoteXY.slMode = 0;
-      client.publish(MODULE_TOPIC, "Auto mode.");
+      client.publish(AUTOMODE_ST_TOPIC, "1");
+    }
+    else if (sub.payload_string() == "0") {
+      auto_light = false;
+      if (!digitalRead(LIGHT_PIN)) RemoteXY.slMode = 1;
+      else RemoteXY.slMode = 2;
+      RemoteXY.slMode = 0;
+      client.publish(AUTOMODE_ST_TOPIC, "0");
     }
   }
 }
@@ -169,9 +181,19 @@ void setup()
   pinMode(LIGHT_PIN, OUTPUT);
   digitalWrite(LIGHT_PIN, LOW);
   //pinMode(PHOTORESIS_PIN, INPUT);
-  //Дачтику движения нужно время на инициализауию. Секунд 30.
-  delay(30*1000);
+  //Дачтику движения нужно время на инициализауию. Секунд 15.
+  delay(15*1000);
 } 
+
+void pubStatus(){
+  client.publish(MODULE_ST_TOPIC, String(millis())+" ms working.");
+  if (auto_light) client.publish(AUTOMODE_ST_TOPIC, "1");
+  else client.publish(AUTOMODE_ST_TOPIC, "0");
+  if (!digitalRead(LIGHT_PIN)) client.publish(LIGHTS_ST_TOPIC, "1");
+  else client.publish(LIGHTS_ST_TOPIC, "0");
+  if (digitalRead(PIR_PIN)) client.publish(MOTION_ST_TOPIC, "1");
+  else client.publish(MOTION_ST_TOPIC, "0");
+}
 
 void loop()  
 {  
@@ -181,8 +203,11 @@ void loop()
   if (!client.connected()) {
     if (client.connect(MQTT_CLIENT_NAME)) {
       client.set_callback(callback);
+      client.subscribe(MODULE_COM_TOPIC);
+      client.subscribe(AUTOMODE_COM_TOPIC);
       client.subscribe(LIGHTS_COM_TOPIC);
-      client.publish(MODULE_TOPIC, "Online");
+      client.publish(MODULE_ST_TOPIC, "Online");
+      pubStatus();
     }
   }
 
@@ -193,7 +218,7 @@ void loop()
   else if (RemoteXY.slMode == 1) {
     if(auto_light){
       auto_light = false;
-      client.publish(MODULE_TOPIC, "Manual mode.");
+      client.publish(AUTOMODE_ST_TOPIC, "0");
     }
     //analogWrite(LIGHT_PIN, map(RemoteXY.slBright, 0, 100, 0, 1023));
     turn_light_on();
@@ -202,7 +227,7 @@ void loop()
   else if (RemoteXY.slMode == 2) {
     if(auto_light){
       auto_light = false;
-      client.publish(MODULE_TOPIC, "Manual mode.");
+      client.publish(AUTOMODE_ST_TOPIC, "0");
     }
     //analogWrite(LIGHT_PIN, 0);
     turn_light_off();
@@ -214,19 +239,21 @@ void loop()
   {
     //Если движение, то инфо на комп. Включить таймер движения
     motion = true; 
-    if (! motion_signal){
+    if (!motion_signal){
       motion_signal = true;
-      client.publish(MOTION_TOPIC, String(millis())+" motion");
+      client.publish(MOTION_ST_TOPIC, "1");
     }
     last_motion_time=millis();
   }
   else{
-    if (motion_signal) motion_signal = false;
+    if (motion_signal){
+      motion_signal = false;
+      client.publish(MOTION_ST_TOPIC, "0");
+    }
     if (millis()-last_motion_time>=light_delay_min*60*1000UL && motion) 
     {
-    //Если нет движения. но было, то по истечению таймера инфу на комп (и выключить свет).
+    //Если нет движения. но было, то по истечению таймера  выключить свет.
       motion=false;
-      client.publish(MOTION_TOPIC, String(millis())+" motion stoped "+String(light_delay_min)+" mins ago.");
     }
   }
   
