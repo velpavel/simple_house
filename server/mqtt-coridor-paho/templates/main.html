@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<head>
+    <title>Статус девайсов</title>
+</head>
+<body>
+   <h1>Статус девайсов MQTT</h1>
+   <table>
+        <tr>
+            <td>Девайс</td><td>Статус</td><td>Обновлено</td>
+        </tr>
+        {% for row in status %}
+            <tr><td>{{row[1]}}</td><td>{{row[2]}}</td><td>{{row[3]}}</td></tr>
+        {% endfor %}
+   </table>
+</body>
+</html>

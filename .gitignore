@@ -1,4 +1,4 @@
 *.pyc
-*/.idea/
 *.sqlite
 *.sqlite3
+server/mqtt-coridor-paho/.idea/
