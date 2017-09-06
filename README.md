@@ -11,3 +11,6 @@ simple_house
 Протокол Сервер-Модули выбирается. 
 Текущий вариант:
 ESP, RaspberyPi, MQTT
+
+Используется библиотека PubSubClient
+https://github.com/Imroy/pubsubclient
